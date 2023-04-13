@@ -1,0 +1,2 @@
+../Core/Src/PWM.c:3:6:PWM_start	24	static
+../Core/Src/PWM.c:13:6:PWM_stop	8	static
