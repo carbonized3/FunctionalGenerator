@@ -7,7 +7,8 @@
 #define	DAC_STEP			5
 
 typedef enum {
-	TRIANGLE = 0,
+	NONE = 0,
+	TRIANGLE,
 	SIN,
 	SAW,
 	REVERSE_SAW

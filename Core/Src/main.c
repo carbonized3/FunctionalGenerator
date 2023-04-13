@@ -45,6 +45,7 @@ SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim9;
 
 osThreadId defaultTaskHandle;
@@ -64,6 +65,7 @@ static void MX_SPI1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM9_Init(void);
+static void MX_TIM5_Init(void);
 void StartDefaultTask(void const * argument);
 void readButtonTask(void const * argument);
 void displayTask(void const * argument);
@@ -74,19 +76,21 @@ void pwmTask(void const * argument);
 
 bool start_stage = true;
 bool set_mode_stage = false;
+bool set_signal_stage = false;
 bool set_freq_stage = false;
 bool set_duty_stage = false;
 uint8_t digit_position = POINT_TENS;	// Переменнаяо твечает за выбор цифры - сотник, десятки или единицы
 uint8_t digits_amount = 2; 				// по умолчанию начальная частота 1.0 кГц, поэтому и кол-во сегментов 3
-float freq_dac;							// Для сохранения настроенных частот во Флэш память
-float freq_pwm;							// Также нужно сохранять digits_amount по уму
-signal_t sig;
+float freq_dac = 1.0;							// Для сохранения настроенных частот во Флэш память
+float freq_pwm = 1.0;							// Также нужно сохранять digits_amount по уму
+signal_t sig = TRIANGLE;
 volatile bool dac_is_running = 0;
 volatile bool pwm_is_running = 0;
 volatile uint16_t button_exti;
 
-//xSemaphoreHandle xReturnSemaphore;
-//xSemaphoreHandle xButtonBounceSemaphore;
+static char signal_msg[][9] = {
+		"TRIANGLE", "SINUS", "SAW", "REV SAW"
+};
 
 xQueueHandle xButtonQueue = NULL;		// Очередь для передачи из прерываний номера кнопки на которой было нажатие
 xQueueHandle xDisplayStringQueue = NULL;		// Очередь для передачи нужной строки в дисплей
@@ -148,6 +152,7 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_TIM9_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
   max7219_init_t cfg = {		// инициализируем структуру
   		  .SPI_Handle = &hspi1,
@@ -339,7 +344,7 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 999;
+  htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 65000;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -425,6 +430,65 @@ static void MX_TIM4_Init(void)
 }
 
 /**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 0;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 4294967295;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim5, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
+  HAL_TIM_MspPostInit(&htim5);
+
+}
+
+/**
   * @brief TIM9 Initialization Function
   * @param None
   * @retval None
@@ -483,8 +547,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOC, LED_Pin|LED2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, D0_Pin|D1_Pin|D2_Pin|D3_Pin
-                          |D4_Pin|D5_Pin|D6_Pin|D7_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, DAC_D0_Pin|DAC_D1_Pin|DAC_D2_Pin|DAC_D3_Pin
+                          |DAC_D4_Pin|DAC_D5_Pin|DAC_D6_Pin|DAC_D7_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
@@ -496,10 +560,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : D0_Pin D1_Pin D2_Pin D3_Pin
-                           D4_Pin D5_Pin D6_Pin D7_Pin */
-  GPIO_InitStruct.Pin = D0_Pin|D1_Pin|D2_Pin|D3_Pin
-                          |D4_Pin|D5_Pin|D6_Pin|D7_Pin;
+  /*Configure GPIO pins : DAC_D0_Pin DAC_D1_Pin DAC_D2_Pin DAC_D3_Pin
+                           DAC_D4_Pin DAC_D5_Pin DAC_D6_Pin DAC_D7_Pin */
+  GPIO_InitStruct.Pin = DAC_D0_Pin|DAC_D1_Pin|DAC_D2_Pin|DAC_D3_Pin
+                          |DAC_D4_Pin|DAC_D5_Pin|DAC_D6_Pin|DAC_D7_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -566,9 +630,9 @@ void readButtonTask(void const * argument)
   /* Infinite loop */
 	uint16_t button_num;	// Это принимаем из прерываний после обработки от дребезга
 	uint8_t digit = 0;
-	float freq = 1.0f;
+	float freq_buff = 1.0f;		// Переменная буфер, там может быть либо частота Ш�?Ма либо ЦАПа
 	float duty = 50.0f;
-	char buff[9] = {};
+	char str_buff[9] = {};
 	uint8_t mode = PWM_MODE;
 	for(;;)
 	{
@@ -582,18 +646,29 @@ void readButtonTask(void const * argument)
 			case BUTTON_LEFT_Pin:
 				if( set_mode_stage )	// Если мы на выборе режима то мы должны его выбрать
 				{
-					sprintf(buff, "%s", (mode == PWM_MODE)? "DAC MODE" : "PWM MODE");
+					sprintf(str_buff, "%s", (mode == PWM_MODE)? "DAC MODE" : "PWM MODE");
 					mode = (mode == PWM_MODE)? DAC_MODE : PWM_MODE;
 					/*	Заворчиваем строку в зависимости от режима тернанрным оператором, если стоял Ш�?М то
 					  	  ставим ЦАП и наоборот. Затем таким же образом присваиваем режим	*/
-					xQueueSendToBack(xDisplayStringQueue, buff, 10 / portTICK_RATE_MS);
+					xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);
+				}
+				if( set_signal_stage )
+				{
+					sig++;		// Следующий режим
+					if( sig > REVERSE_SAW )  sig = TRIANGLE;
+					sprintf(str_buff, "%s", signal_msg[sig - 1]);
+					/*	Т.к sig начинается у нас с 1	*/
+					xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);
 				}
 				if( set_freq_stage )
 				{
 					digit_position++;		// Двигаемся влево в сторону увеличения
 					if( digit_position > digits_amount ) digit_position = POINT_TENS;
 					/*	Если достигли старшего разряда то возвращаемся к младшему	*/
-					xQueueSendToBack(xDisplayFreqQueue, &freq, 10 / portTICK_RATE_MS);
+					freq_buff = (mode == PWM_MODE)? freq_pwm : freq_dac;
+					xQueueSendToBack(xDisplayFreqQueue, &freq_buff, 10 / portTICK_RATE_MS);
+					/*	В зависимости от того какой режим присваиваем нашему буфферу нужную частоту а дальше её
+					 * отправляем в очередь	*/
 				}
 				if( set_duty_stage )
 				{
@@ -607,18 +682,26 @@ void readButtonTask(void const * argument)
 			case BUTTON_RIGHT_Pin:
 				if( set_mode_stage )	// Если мы на выборе режима то мы должны его выбрать
 				{
-					sprintf(buff, "%s", (mode == PWM_MODE)? "DAC MODE" : "PWM MODE");
+					sprintf(str_buff, "%s", (mode == PWM_MODE)? "DAC MODE" : "PWM MODE");
 					mode = (mode == PWM_MODE)? DAC_MODE : PWM_MODE;
 					/*	Заворчиваем строку в зависимости от режима тернанрным оператором, если стоял Ш�?М то
 					  	  ставим ЦАП и наоборот. Затем таким же образом присваиваем режим	*/
-					xQueueSendToBack(xDisplayStringQueue, buff, 10 / portTICK_RATE_MS);
+					xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);
+				}
+				if( set_signal_stage )
+				{
+					sig--;		// Следующий режим
+					if( sig < TRIANGLE )  sig = REVERSE_SAW;
+					sprintf(str_buff, "%s", signal_msg[sig - 1]);
+					xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);
 				}
 				if( set_freq_stage )
 				{
 					digit_position--;	// Двигаемся вправо в сторону уменьшения
 					if( digit_position < POINT_TENS)	digit_position = digits_amount;
 					/*	Если мы с самого краю справа, то нужно переместиться на самый старший разряд слева */
-					xQueueSendToBack(xDisplayFreqQueue, &freq, 50 / portTICK_RATE_MS);
+					freq_buff = (mode == PWM_MODE)? freq_pwm : freq_dac;
+					xQueueSendToBack(xDisplayFreqQueue, &freq_buff, 50 / portTICK_RATE_MS);
 				}
 				if( set_duty_stage )
 				{
@@ -630,18 +713,42 @@ void readButtonTask(void const * argument)
 				break;
 
 			case BUTTON_UP_Pin:
-				if( set_freq_stage )
+				if( set_freq_stage )	// Стадия задания частоты ЦАПа и Ш�?Ма отличаются
 				{
-					freq += (digit_position == POINT_TENS) ? 0.1 : 0;	// Прибавляем 0.01 иначе 0, т.е ничего
-					freq += (digit_position == UNITS) ? 1 : 0;
-					freq +=(digit_position == TENS) ? 10 : 0;
-					/*	В зависимости от того, на каком разряде мы остановились, будем прибавлять величину на
-					 	 1 нужного нам разряда, будь то десятые, еидинцы или десятки */
-					if(freq > 9.9)	digits_amount = TENS;
-					if(freq > 99.9)	freq = 99.9;
-					/* Увеличиваем кол-во цифр на дисплее, чтобы среди них выбирать нужный разряд, а также
-					 * ограничиваем частоту до 99.9 кГц */
-					xQueueSendToBack(xDisplayFreqQueue, &freq, 10 / portTICK_RATE_MS);
+					if( mode == PWM_MODE)
+					{
+						freq_pwm += (digit_position == POINT_TENS) ? 0.1 : 0;	// Прибавляем 0.01 иначе 0, т.е ничего
+						freq_pwm += (digit_position == UNITS) ? 1 : 0;
+						freq_pwm += (digit_position == TENS) ? 10 : 0;
+						freq_pwm += (digit_position == HUNDREDS) ? 100 : 0;
+						/*	В зависимости от того, на каком разряде мы остановились, будем прибавлять величину на
+						 	 1 нужного нам разряда, будь то десятые, еидинцы или десятки */
+						if( freq_pwm > 9.9 && freq_pwm < 100 )	digits_amount = TENS;
+						if( freq_pwm > 99.9 )					digits_amount = HUNDREDS;
+						if( freq_pwm > 999.9 )					freq_pwm = 999.9;
+						/* Увеличиваем кол-во цифр на дисплее, чтобы среди них выбирать нужный разряд, а также
+						 * ограничиваем частоту до 999.9 кГц */
+						xQueueSendToBack(xDisplayFreqQueue, &freq_pwm, 10 / portTICK_RATE_MS);
+					}
+					if( mode == DAC_MODE )
+					{
+						freq_dac += (digit_position == POINT_TENS) ? 0.1 : 0;	// Прибавляем 0.01 иначе 0, т.е ничего
+						freq_dac += (digit_position == UNITS) ? 1 : 0;
+						freq_dac +=(digit_position == TENS) ? 10 : 0;
+						/*	В зависимости от того, на каком разряде мы остановились, будем прибавлять величину на
+						 	 1 нужного нам разряда, будь то десятые, еидинцы или десятки */
+						if(freq_dac > 9.9)	digits_amount = TENS;
+
+						if( freq_dac > 5 && sig == SIN )							freq_dac = 5.0;
+						if( freq_dac > 30 && (sig == SAW || sig == REVERSE_SAW) )	freq_dac = 30.0;
+						if( freq_dac > 15 && sig == TRIANGLE )						freq_dac = 15.0;
+
+						xQueueSendToBack(xDisplayFreqQueue, &freq_dac, 10 / portTICK_RATE_MS);
+						/*	В зависимости от типа сигнала ставим ограничения в частотах. Например синус с
+						 *	разрешением в 256 бит на период больше 5 кГц с точностью 1-2% уже не тянет.
+						 *	А пилы - что обычная, что реверсная могут и до 30 кГц.
+						 */
+					}
 				}
 				if( set_duty_stage )		// Если мы на стадии выбора скважность
 				{
@@ -659,18 +766,40 @@ void readButtonTask(void const * argument)
 			case BUTTON_DOWN_Pin:
 				if( set_freq_stage )
 				{
-					freq -= (digit_position == POINT_TENS) ? 0.1 : 0;
-					freq -= (digit_position == UNITS) ? 1 : 0;
-					freq -= (digit_position == TENS) ? 10 : 0;
-
-					if( freq < 10 )	digits_amount = UNITS;
-					if( freq <= 0.01 )	freq = 0.1;
-					/* Уменьшаем кол-во цифр на дисплее, чтобы среди них выбирать нужный разряд, а также
-					 * ограничиваем частоту снизу до 0.1 кГц.
-					 * Костыль в виде 0.01 нужен потому что float преобразует так, что при вычитании там не 0,
-					 * а 0.000000004 сколько-то там, что больше 0, но выводится 0, т.к у нас sprintf с точностью
-					 * до одного знака. Зная это, делаем 0.01*/
-					xQueueSendToBack(xDisplayFreqQueue, &freq, 10 / portTICK_RATE_MS);
+					if( mode == PWM_MODE)
+					{
+						freq_pwm -= (digit_position == POINT_TENS) ? 0.1 : 0;	// Прибавляем 0.01 иначе 0, т.е ничего
+						freq_pwm -= (digit_position == UNITS) ? 1 : 0;
+						freq_pwm -= (digit_position == TENS) ? 10 : 0;
+						freq_pwm -= (digit_position == HUNDREDS) ? 100 : 0;
+						/*	В зависимости от того, на каком разряде мы остановились, будем прибавлять величину на
+						 	 1 нужного нам разряда, будь то десятые, еидинцы или десятки */
+						if( freq_pwm < 10 )	digits_amount = UNITS;
+						if( freq_pwm <= 0.01 )	freq_pwm = 0.1;
+						/* Увеличиваем кол-во цифр на дисплее, чтобы среди них выбирать нужный разряд, а также
+						 * ограничиваем частоту до 999.9 кГц */
+						xQueueSendToBack(xDisplayFreqQueue, &freq_pwm, 10 / portTICK_RATE_MS);
+					}
+					if( mode == DAC_MODE )
+					{
+						freq_dac -= (digit_position == POINT_TENS) ? 0.1 : 0;	// Прибавляем 0.01 иначе 0, т.е ничего
+						freq_dac -= (digit_position == UNITS) ? 1 : 0;
+						freq_dac -= (digit_position == TENS) ? 10 : 0;
+						/*	В зависимости от того, на каком разряде мы остановились, будем прибавлять величину на
+						 	 1 нужного нам разряда, будь то десятые, еидинцы или десятки */
+						if( freq_dac < 10 )	digits_amount = UNITS;
+						if( freq_dac <= 0.01 )	freq_dac = 0.1;
+						/* Уменьшаем кол-во цифр на дисплее, чтобы среди них выбирать нужный разряд, а также
+						 * ограничиваем частоту снизу до 0.1 кГц.
+						 * Костыль в виде 0.01 нужен потому что float преобразует так, что при вычитании там не 0,
+						 * а 0.000000004 сколько-то там, что больше 0, но выводится 0, т.к у нас sprintf с точностью
+						 * до одного знака. Зная это, делаем 0.01*/
+						xQueueSendToBack(xDisplayFreqQueue, &freq_dac, 10 / portTICK_RATE_MS);
+						/*	В зависимости от типа сигнала ставим ограничения в частотах. Например синус с
+						 *	разрешением в 256 бит на период больше 5 кГц с точностью 1-2% уже не тянет.
+						 *	А пилы - что обычная, что реверсная могут и до 30 кГц.
+						 */
+					}
 				}
 				if( set_duty_stage )		// Если мы на стадии выбора скважность
 				{
@@ -690,19 +819,42 @@ void readButtonTask(void const * argument)
 				{
 					start_stage = false;
 					set_mode_stage = true;
-					sprintf(buff, "PWM MODE");
-					xQueueSendToBack(xDisplayStringQueue, buff, 10 / portTICK_RATE_MS);	// Ждём 10 мс
+					sprintf(str_buff, "PWM MODE");		// Начальное сообщение
+					xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);	// Ждём 10 мс
 					continue;
 				}
 				if( set_mode_stage )		// Здесь подтвердили режим и выдали на дисплей частоту по умолчанию
 				{
-					digits_amount = UNITS;
 					set_mode_stage = false;		// Чтобы сюда уже потом не зайти
-					set_freq_stage = true;		// Чтобы зайти в условия выбора частоты
-					sprintf(buff, "SET FREQ");
-					xQueueSendToBack(xDisplayStringQueue, buff, 10 / portTICK_RATE_MS);	// На 1,5 сек отобразим надпись
+					if( mode == PWM_MODE)
+					{
+						digits_amount = UNITS;
+						set_freq_stage = true;		// Чтобы зайти в условия выбора частоты
+						sprintf(str_buff, "SET FREQ");
+						xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);	// На 1,5 сек отобразим надпись
+						vTaskDelay(2000 / portTICK_RATE_MS);
+						xQueueSendToBack(xDisplayFreqQueue, &freq_pwm, 10 / portTICK_RATE_MS);	// Отдали частоту в свою очередь
+						continue;
+					}
+					else if( mode == DAC_MODE)
+					{
+						set_signal_stage = true;		// Чтобы зайти в выбор сигналов а уже оттуда в выбор частоты
+						sprintf(str_buff, "SET SIGN");
+						xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);
+						vTaskDelay(2000 / portTICK_RATE_MS);
+						sprintf(str_buff, signal_msg[sig - 1]);
+						xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);
+						continue;
+					}
+				}
+				if( set_signal_stage )			// Здесь только когда выбрали ЦАП
+				{
+					set_signal_stage = false;
+					set_freq_stage = true;
+					sprintf(str_buff, "SET FREQ");
+					xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);	// На 1,5 сек отобразим надпись
 					vTaskDelay(2000 / portTICK_RATE_MS);
-					xQueueSendToBack(xDisplayFreqQueue, &freq, 10 / portTICK_RATE_MS);	// Отдали частоту в свою очередь
+					xQueueSendToBack(xDisplayFreqQueue, &freq_dac, 10 / portTICK_RATE_MS);	// Отдали частоту в свою очередь
 					continue;
 				}
 				if( set_freq_stage )		// Здесь подтвердили частоту
@@ -710,41 +862,42 @@ void readButtonTask(void const * argument)
 					if( mode == PWM_MODE )	// Если нам нужно задать ещё и скважность
 					{
 						digits_amount = TENS;
-						sprintf(buff, "%s", "SET DUTY");
-						xQueueSendToBack(xDisplayStringQueue, buff, 35 / portTICK_RATE_MS);
+						sprintf(str_buff, "%s", "SET DUTY");
+						xQueueSendToBack(xDisplayStringQueue, str_buff, 35 / portTICK_RATE_MS);
 						vTaskDelay(2000 / portTICK_RATE_MS);
 						xQueueSendToBack(xDisplayDutyQueue, &duty, 35 / portTICK_RATE_MS);
-						set_duty_stage = true;			// Для режима Ш�?М нужно задать ещё и скважность
+						set_duty_stage = true;			// Для режима Ш�?М нужно задать ещё и скважность
 						set_freq_stage = false;
 						continue;
 					}
 					else 		// Если мы в режиме ЦАПа, то уже ничего больше задавать не нужно
 					{
 						set_duty_stage = false;
-						sprintf(buff, "%s", "DAC RUN");
-						xQueueSendToBack(xDisplayStringQueue, buff, 10 / portTICK_RATE_MS);
+						sprintf(str_buff, "%s", "DAC RUN");
+						xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);
 						dac_is_running = true;
 						/*	Завернем строку в buff о том, какой у нас режим работает, в зависимости от значения
 						 	 переменной mode и сразу отправим её в очередь.	А также поднимем флаг для ЦАПа*/
 					}
 					set_freq_stage = false;
 				}
-				if( set_duty_stage )
+				if( set_duty_stage )				// Здесь только когда выбрали PWM
 				{
 					set_duty_stage = false;
-					sprintf(buff, "%s", "PWM RUN");
-					xQueueSendToBack(xDisplayStringQueue, buff, 10 / portTICK_RATE_MS);
+					sprintf(str_buff, "%s", "PWM RUN");
+					xQueueSendToBack(xDisplayStringQueue, str_buff, 10 / portTICK_RATE_MS);
 					pwm_is_running = true;
 				}
 				break;
 
 			case BUTTON_RETURN_Pin:
 				set_mode_stage = false;
+				set_signal_stage = false;
 				set_duty_stage = false;
 				set_freq_stage = false;
 				start_stage = true;
-				sprintf(buff, "%s", "SET MODE");
-				xQueueSendToBack(xDisplayStringQueue, buff, 10 / portTICK_RATE_MS);
+				sprintf(str_buff, "%s", "SET MODE");
+				xQueueSendToBack(xDisplayStringQueue,str_buff, 10 / portTICK_RATE_MS);
 				break;
 		}
 
@@ -774,7 +927,6 @@ void displayTask(void const * argument)
 	{
 		if( xQueueReceive(xDisplayStringQueue, str, 10 / portTICK_RATE_MS) == pdPASS )
 		{
-			if( pwm_is_running || dac_is_running)
 			MAX7219_clearAll();
 			MAX7219_sendString(str);
 		}

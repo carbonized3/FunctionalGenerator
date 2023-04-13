@@ -20,6 +20,7 @@ static uint16_t tim3_counter_period;
 void DAC_stop()
 {
 	TIM3->CNT = 0;
+	GPIOA->ODR = 0;
 	HAL_TIM_Base_Stop_IT(&htim3);
 }
 void DAC_init(signal_t signal, float freq)
@@ -39,6 +40,7 @@ void DAC_init(signal_t signal, float freq)
 		one_dac_tick = (1000 / freq) / (256);
 	}
 	tim3_counter_period = one_dac_tick / 0.015625;
+	TIM3->PSC = 0;
 	TIM3->ARR = tim3_counter_period;
 	TIM3->CNT = 0;
 	HAL_TIM_Base_Start_IT(&htim3);		// Запустили таймер
