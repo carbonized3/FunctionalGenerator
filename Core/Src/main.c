@@ -934,7 +934,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	{
 		HAL_TIM_Base_Stop_IT(&htim9);
 		BaseType_t high_task_awoken = 0;
-		if( HAL_GPIO_ReadPin(GPIOA, button_exti) == GPIO_PIN_RESET )	// Если спустя 50 мс сигнал устойчивый
+		if( HAL_GPIO_ReadPin(GPIOA, button_exti) == GPIO_PIN_RESET )
 		{
 			uint16_t button_num = button_exti;
 			switch(button_exti)
@@ -956,11 +956,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					break;
 				case BUTTON_RETURN_Pin:
 					button_num = BUTTON_RETURN_Pin;
-					dac_is_running = false;				// Чтобы остановить бесконечную работу ЦАПа или Ш�?Ма
+					dac_is_running = false;
 					pwm_is_running = false;
 					break;
 			}
-			xQueueSendToBackFromISR(xButtonQueue, &button_num, &high_task_awoken);	// Отправим номер порта в очередь
+			xQueueSendToBackFromISR(xButtonQueue, &button_num, &high_task_awoken);
 		}
 		EXTI->PR = (1<<1);
 		EXTI->PR = (1<<2);
@@ -976,13 +976,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		HAL_NVIC_EnableIRQ(BUTTON_RIGHT_EXTI_IRQn);
 		HAL_NVIC_EnableIRQ(BUTTON_RETURN_EXTI_IRQn);
 		HAL_NVIC_EnableIRQ(BUTTON_OK_EXTI_IRQn);
-
 		if( high_task_awoken == pdTRUE )
 		{
 			portYIELD_FROM_ISR(high_task_awoken);
 		}
-		/* Обратно включили все прерывания и остановили таймер в любом случае, был это дребезг
-		 * или нет. Сразу переключим контекст, если надо.	*/
 	}
   /* USER CODE END Callback 1 */
 }
