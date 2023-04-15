@@ -110,8 +110,6 @@ typedef enum {					// Тайпдеф для удобной работы с ра�
 #define BUTTON_DOWN_Pin GPIO_PIN_10
 #define BUTTON_DOWN_GPIO_Port GPIOA
 #define BUTTON_DOWN_EXTI_IRQn EXTI15_10_IRQn
-#define TICK_Pin GPIO_PIN_11
-#define TICK_GPIO_Port GPIOA
 #define DAC_D3_Pin GPIO_PIN_3
 #define DAC_D3_GPIO_Port GPIOB
 #define DAC_D4_Pin GPIO_PIN_4
