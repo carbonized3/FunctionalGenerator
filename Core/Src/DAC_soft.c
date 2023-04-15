@@ -20,7 +20,7 @@ static uint16_t tim3_counter_period;
 void DAC_stop()
 {
 	TIM3->CNT = 0;
-	GPIOA->ODR = 0;
+	GPIOB->ODR = 0;
 	HAL_TIM_Base_Stop_IT(&htim3);
 }
 void DAC_init(signal_t signal, float freq)
@@ -55,7 +55,7 @@ void DAC_writeSin()
 		if( (TIM3->SR & TIM_SR_UIF) )
 		{
 			TIM3->SR &= ~(TIM_SR_UIF);
-			GPIOA->ODR = sin_tab[j];
+			GPIOB->ODR = sin_tab[j];
 			j++;
 		}
 	}
@@ -69,7 +69,7 @@ void DAC_writeTriangle()	// freq in kHz
 		if( (TIM3->SR & TIM_SR_UIF) )
 		{
 			TIM3->SR &= ~(TIM_SR_UIF);
-			GPIOA->ODR = j;
+			GPIOB->ODR = j;
 			j += 5;
 		}
 	}
@@ -78,7 +78,7 @@ void DAC_writeTriangle()	// freq in kHz
 		if( (TIM3->SR & TIM_SR_UIF) )
 		{
 			TIM3->SR &= ~(TIM_SR_UIF);
-			GPIOA->ODR = j;
+			GPIOB->ODR = j;
 			j -= 5;
 		}
 	}
@@ -91,7 +91,7 @@ void DAC_writeSaw()		// in kHz
 	{
 		if( (TIM3->SR & TIM_SR_UIF) )
 		{
-			GPIOA->ODR = j;
+			GPIOB->ODR = j;
 			TIM3->SR &= ~(TIM_SR_UIF);
 			j += 5;
 		}
@@ -105,7 +105,7 @@ void DAC_writeReverseSaw()		// in kHz
 	{
 		if( (TIM3->SR & TIM_SR_UIF) )
 		{
-			GPIOA->ODR = j;
+			GPIOB->ODR = j;
 			TIM3->SR &= ~(TIM_SR_UIF);
 			j -= 5;
 		}

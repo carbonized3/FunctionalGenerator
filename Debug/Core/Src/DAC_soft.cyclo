@@ -1,6 +1,6 @@
 DAC_soft.c:20:6:DAC_stop	1
 DAC_soft.c:26:6:DAC_init	5
-DAC_soft.c:49:6:DAC_writeSin	3
-DAC_soft.c:63:6:DAC_writeTriangle	5
-DAC_soft.c:85:6:DAC_writeSaw	3
-DAC_soft.c:99:6:DAC_writeReverseSaw	3
+DAC_soft.c:50:6:DAC_writeSin	3
+DAC_soft.c:64:6:DAC_writeTriangle	5
+DAC_soft.c:86:6:DAC_writeSaw	3
+DAC_soft.c:100:6:DAC_writeReverseSaw	3

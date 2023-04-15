@@ -44,7 +44,6 @@
 SPI_HandleTypeDef hspi1;
 
 TIM_HandleTypeDef htim3;
-TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim9;
 
@@ -63,7 +62,6 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_TIM4_Init(void);
 static void MX_TIM9_Init(void);
 static void MX_TIM5_Init(void);
 void StartDefaultTask(void const * argument);
@@ -112,9 +110,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)		// Колбек прерыван
 	button_exti = GPIO_Pin;				// Присвоим глобальной переменной номер ножки, на к-ой было прерывания
 //	BaseType_t high_task_awoken = 0;
 	HAL_TIM_Base_Start_IT(&htim9);		// Запустили таймер, там он уже отслекдит по глобальной переменной что ему делать
-	HAL_NVIC_DisableIRQ(EXTI1_IRQn);
-	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
-	HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+	HAL_NVIC_DisableIRQ(BUTTON_DOWN_EXTI_IRQn);
+	HAL_NVIC_DisableIRQ(BUTTON_UP_EXTI_IRQn);
+	HAL_NVIC_DisableIRQ(BUTTON_LEFT_EXTI_IRQn);
+	HAL_NVIC_DisableIRQ(BUTTON_RIGHT_EXTI_IRQn);
+	HAL_NVIC_DisableIRQ(BUTTON_RETURN_EXTI_IRQn);
+	HAL_NVIC_DisableIRQ(BUTTON_OK_EXTI_IRQn);
 
 //	pending = HAL_NVIC_GetPendingIRQ(EXTI15_10_IRQn);
 }
@@ -150,7 +151,6 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   MX_TIM3_Init();
-  MX_TIM4_Init();
   MX_TIM9_Init();
   MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
@@ -174,6 +174,8 @@ int main(void)
 
   sprintf(buff, "%s", (mode == PWM_MODE)? "DAC_MODE" : "PWM_MODE");
 */
+
+  HAL_GPIO_WritePin(TICK_GPIO_Port, TICK_Pin, GPIO_PIN_RESET);
 
   xButtonQueue = xQueueCreate(10, sizeof(uint16_t));
   xDisplayStringQueue = xQueueCreate(10, sizeof(char[9]));
@@ -371,65 +373,6 @@ static void MX_TIM3_Init(void)
 }
 
 /**
-  * @brief TIM4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM4_Init(void)
-{
-
-  /* USER CODE BEGIN TIM4_Init 0 */
-
-  /* USER CODE END TIM4_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
-
-  /* USER CODE BEGIN TIM4_Init 1 */
-
-  /* USER CODE END TIM4_Init 1 */
-  htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 0;
-  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 65535;
-  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM4_Init 2 */
-
-  /* USER CODE END TIM4_Init 2 */
-  HAL_TIM_MspPostInit(&htim4);
-
-}
-
-/**
   * @brief TIM5 Initialization Function
   * @param None
   * @retval None
@@ -544,21 +487,29 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, LED_Pin|LED2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, DAC_D0_Pin|DAC_D1_Pin|DAC_D2_Pin|DAC_D3_Pin
+  HAL_GPIO_WritePin(GPIOB, DAC_D0_Pin|DAC_D1_Pin|DAC_D2_Pin|DAC_D3_Pin
                           |DAC_D4_Pin|DAC_D5_Pin|DAC_D6_Pin|DAC_D7_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, SPI_CS_Pin|TICK_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : LED_Pin LED2_Pin */
-  GPIO_InitStruct.Pin = LED_Pin|LED2_Pin;
+  /*Configure GPIO pin : LED_Pin */
+  GPIO_InitStruct.Pin = LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  HAL_GPIO_Init(LED_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : BUTTON_LEFT_Pin BUTTON_RIGHT_Pin BUTTON_OK_Pin BUTTON_RETURN_Pin
+                           BUTTON_UP_Pin BUTTON_DOWN_Pin */
+  GPIO_InitStruct.Pin = BUTTON_LEFT_Pin|BUTTON_RIGHT_Pin|BUTTON_OK_Pin|BUTTON_RETURN_Pin
+                          |BUTTON_UP_Pin|BUTTON_DOWN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : DAC_D0_Pin DAC_D1_Pin DAC_D2_Pin DAC_D3_Pin
                            DAC_D4_Pin DAC_D5_Pin DAC_D6_Pin DAC_D7_Pin */
@@ -567,26 +518,37 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : BUTTON_LEFT_Pin BUTTON_UP_Pin BUTTON_DOWN_Pin BUTTON_OK_Pin
-                           BUTTON_RETURN_Pin BUTTON_RIGHT_Pin */
-  GPIO_InitStruct.Pin = BUTTON_LEFT_Pin|BUTTON_UP_Pin|BUTTON_DOWN_Pin|BUTTON_OK_Pin
-                          |BUTTON_RETURN_Pin|BUTTON_RIGHT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : SPI_CS_Pin */
   GPIO_InitStruct.Pin = SPI_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
   HAL_GPIO_Init(SPI_CS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : TICK_Pin */
+  GPIO_InitStruct.Pin = TICK_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(TICK_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
@@ -630,7 +592,7 @@ void readButtonTask(void const * argument)
   /* Infinite loop */
 	uint16_t button_num;	// Это принимаем из прерываний после обработки от дребезга
 	uint8_t digit = 0;
-	float freq_buff = 1.0f;		// Переменная буфер, там может быть либо частота Ш�?Ма либо ЦАПа
+	float freq_buff = 1.0f;		// Переменная буфер, там может быть либо частота Ш�?Ма либо ЦАПа
 	float duty = 50.0f;
 	char str_buff[9] = {};
 	uint8_t mode = PWM_MODE;
@@ -713,7 +675,7 @@ void readButtonTask(void const * argument)
 				break;
 
 			case BUTTON_UP_Pin:
-				if( set_freq_stage )	// Стадия задания частоты ЦАПа и Ш�?Ма отличаются
+				if( set_freq_stage )	// Стадия задания частоты ЦАПа и Ш�?Ма отличаются
 				{
 					if( mode == PWM_MODE)
 					{
@@ -828,6 +790,7 @@ void readButtonTask(void const * argument)
 					set_mode_stage = false;		// Чтобы сюда уже потом не зайти
 					if( mode == PWM_MODE)
 					{
+						set_signal_stage = false;
 						digits_amount = UNITS;
 						set_freq_stage = true;		// Чтобы зайти в условия выбора частоты
 						sprintf(str_buff, "SET FREQ");
@@ -866,7 +829,7 @@ void readButtonTask(void const * argument)
 						xQueueSendToBack(xDisplayStringQueue, str_buff, 35 / portTICK_RATE_MS);
 						vTaskDelay(2000 / portTICK_RATE_MS);
 						xQueueSendToBack(xDisplayDutyQueue, &duty, 35 / portTICK_RATE_MS);
-						set_duty_stage = true;			// Для режима Ш�?М нужно задать ещё и скважность
+						set_duty_stage = true;			// Для режима Ш�?М нужно задать ещё и скважность
 						set_freq_stage = false;
 						continue;
 					}
@@ -896,6 +859,7 @@ void readButtonTask(void const * argument)
 				set_duty_stage = false;
 				set_freq_stage = false;
 				start_stage = true;
+				mode = PWM_MODE;
 				sprintf(str_buff, "%s", "SET MODE");
 				xQueueSendToBack(xDisplayStringQueue,str_buff, 10 / portTICK_RATE_MS);
 				break;
@@ -1025,10 +989,19 @@ void pwmTask(void const * argument)
 {
   /* USER CODE BEGIN pwmTask */
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+	for(;;)
+	{
+		if( pwm_is_running )
+		{
+			PWM_start(100, 10);
+		}
+		while( pwm_is_running )
+		{
+
+		}
+		PWM_stop();
+		vTaskDelay(100 / portTICK_RATE_MS);
+	}
   /* USER CODE END pwmTask */
 }
 
@@ -1046,6 +1019,23 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM2) {
+	HAL_GPIO_WritePin(TICK_GPIO_Port, TICK_Pin, GPIO_PIN_SET);
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	asm("nop");
+	HAL_GPIO_WritePin(TICK_GPIO_Port, TICK_Pin, GPIO_PIN_RESET);
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
@@ -1053,7 +1043,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	{
 		HAL_TIM_Base_Stop_IT(&htim9);
 		BaseType_t high_task_awoken = 0;
-		if( HAL_GPIO_ReadPin(GPIOB, button_exti) == GPIO_PIN_RESET )	// Если спустя 50 мс сигнал устойчивый
+		if( HAL_GPIO_ReadPin(GPIOA, button_exti) == GPIO_PIN_RESET )	// Если спустя 50 мс сигнал устойчивый
 		{
 			uint16_t button_num = button_exti;
 			switch(button_exti)
@@ -1082,16 +1072,20 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			xQueueSendToBackFromISR(xButtonQueue, &button_num, &high_task_awoken);	// Отправим номер порта в очередь
 		}
 		EXTI->PR = (1<<1);
-		EXTI->PR = (1<<10);
-		EXTI->PR = (1<<12);
-		EXTI->PR = (1<<13);
-		EXTI->PR = (1<<14);
+		EXTI->PR = (1<<2);
+		EXTI->PR = (1<<3);
+		EXTI->PR = (1<<4);
+		EXTI->PR = (1<<9);
 		EXTI->PR = (1<<15);
 		/*	Чистим флаги прерываний которые могли произойти во время задрежки таймером, чтобы не попасть в колбек
 		 * ещё лишний раз	*/
-		HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-		HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-		HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+		HAL_NVIC_EnableIRQ(BUTTON_DOWN_EXTI_IRQn);
+		HAL_NVIC_EnableIRQ(BUTTON_UP_EXTI_IRQn);
+		HAL_NVIC_EnableIRQ(BUTTON_LEFT_EXTI_IRQn);
+		HAL_NVIC_EnableIRQ(BUTTON_RIGHT_EXTI_IRQn);
+		HAL_NVIC_EnableIRQ(BUTTON_RETURN_EXTI_IRQn);
+		HAL_NVIC_EnableIRQ(BUTTON_OK_EXTI_IRQn);
+
 		if( high_task_awoken == pdTRUE )
 		{
 			portYIELD_FROM_ISR(high_task_awoken);
