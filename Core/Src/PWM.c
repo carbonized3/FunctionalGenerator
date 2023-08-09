@@ -2,10 +2,9 @@
 
 void PWM_start(float freq, float duty)
 {
-	/*	PSC = 1  всегда, значит минимальная частота ШИМ около 1 кГц
-	 * Таймер 5 на 32 бита для того чтобы можно было делать сверхнизкие частоты. */
-	uint32_t tim4_counter_period = 64000 / freq;	// Расчёт в kHz, при PSC = 1
-	uint32_t tim4_ccr_val = (tim4_counter_period * duty) / 100; // Обычная пропорция ARR - 100% а CCR - duty, откуда нашли CCR
+	/*	PSC = 1  всегда. Таймер 5 на 32 бита для того чтобы можно было делать сверхнизкие частоты	*/
+	uint32_t tim4_counter_period = 64000 / freq;	
+	uint32_t tim4_ccr_val = (tim4_counter_period * duty) / 100; 
 	TIM5->PSC = 0;
 	TIM5->CNT = 0;
 	TIM5->ARR = tim4_counter_period;

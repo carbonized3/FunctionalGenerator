@@ -5,13 +5,12 @@
 #include "string.h"
 #include "stdio.h"
 
-
 #define POINT		0x80
 //----------------------------------------------------Адреса регистров------------------------------------------------------
 #define MAX7219_DECODE_MODE_REG				0x09
 #define MAX7219_INTENSITY_REG				0x0A
 #define MAX7219_SCAN_LIMIT_REG				0x0B
-#define MAX7219_MODE_REG					0x0C	// (Shutdown register)
+#define MAX7219_MODE_REG					0x0C	
 #define MAX7219_DIGIT_0_REG					0x01
 #define MAX7219_DIGIT_1_REG					0x02
 #define MAX7219_DIGIT_2_REG					0x03
@@ -30,17 +29,17 @@
 #define MAX7219_SEGMENT_6 					MAX7219_DIGIT_6_REG
 #define MAX7219_SEGMENT_7 					MAX7219_DIGIT_7_REG
 
-#define MAX7219_SEGMENTS_AMOUNT 			MAX7219_SEGMENT_7 			// Всего 8 сегментов
+#define MAX7219_SEGMENTS_AMOUNT 			MAX7219_SEGMENT_7 			
 //------------------------------------------------------Режимы декодирования-------------------------------------------------
-#define MAX7219_DECODE_FOR_ALL_DIGITS		0xFF		// Декодирование на всех сегментах
-#define MAX7219_DECODE_FOR_DIGIT_0			0x01		// Декодирование 0-ого сегмента(самого правого)
-#define MAX7219_DECODE_FOR_DIGITS_3_TO_0	0x0F		// Декодирование сегментов 0-3
+#define MAX7219_DECODE_FOR_ALL_DIGITS		0xFF		/* Декодирование на всех сегментах	*/
+#define MAX7219_DECODE_FOR_DIGIT_0			0x01		/* Декодирование 0-ого сегмента(самого правого)	*/
+#define MAX7219_DECODE_FOR_DIGITS_3_TO_0	0x0F		/* Декодирование сегментов 0-3	*/
 #define MAX7219_NO_DECODE					0
 //--------------------------------------------------------Режим сна или нет--------------------------------------------------
-#define MAX7219_NORMAL_MODE					0x01		// НЕ спящий режим
+#define MAX7219_NORMAL_MODE					0x01		/* НЕ спящий режим	*/
 //--------------------------------------------------Символы для режима без кодирования---------------------------------------
 #define _MINUS	0x01
-#define _0 		0x7E		// Здесь свои символы, отличные от нормальных для 7-сегментного инидкатора
+#define _0 		0x7E		
 #define _1 		0x30
 #define _2 		0x6D
 #define _3 		0x79
@@ -78,8 +77,9 @@
 #define _Z		0x6D
 #define _SPACE	0x00
 //---------------------------------------------------------------------------------------------------------------------------
+/*	Варианты яркости дисплее	*/
 typedef enum {
-	MAX7219_INTENSITY_3_OF_32 = 0x01,		// Интенсивность свечения
+	MAX7219_INTENSITY_3_OF_32 = 0x01,		
 	MAX7219_INTENSITY_5_OF_32,
 	MAX7219_INTENSITY_7_OF_32,
 	MAX7219_INTENSITY_9_OF_32,
@@ -96,6 +96,7 @@ typedef enum {
 	MAX7219_INTENSITY_31_OF_32
 } max7219_intensity_t;
 
+/*	Варианты количества задействованных сегментов дисплея	*/
 typedef enum {
 	MAX7219_DISPLAY_0,
 	MAX7219_DISPLAY_0_TO_1,				// Сколько сегментов включаем
@@ -107,7 +108,8 @@ typedef enum {
 	MAX7219_DISPLAY_0_TO_7,		// (all digits)
 } display_segments_quantity_t;
 
-typedef struct {						// Структуру для инициализации и состояния
+/*	Структура для инициализации и состояния	*/
+typedef struct {						
 	SPI_HandleTypeDef *SPI_Handle;
 	uint32_t CS_PIN;
 	uint32_t CS_PORT;
@@ -116,23 +118,29 @@ typedef struct {						// Структуру для инициализации и
 	display_segments_quantity_t digits_quantity;
 } max7219_init_t;
 
-
+/*	Функция инициализации дисплея	*/
 HAL_StatusTypeDef MAX7219_init(max7219_init_t *cfg);
+/*	Функция записи числа с плавающей точкой на дисплей	*/
 uint8_t MAX7219_sendFloatNumber(float number);
+/*	Функция записи частоты на дисплей	*/
 uint8_t MAX7219_sendFreq(float freq);
+/*	Функция записи скважности на дисплей	*/
 uint8_t MAX7219_sendDuty(float duty);
+/*	Функция записи строки на дисплей	*/
 void MAX7219_sendString(char *str);
+/*	Функция записи цифры на дисплей	*/
 void MAX7219_sendDigit(uint8_t seg, uint8_t digit);
+/*	Функция очистки всех сегментов дисплее	*/
 void MAX7219_clearAll();
+/*	Функция записи целочисленного числа на дисплей	*/
 void MAX7219_sendNumber(int number);
+/*	Функция записи одного символа на дисплей	*/
 void MAX7219_sendOneChar(uint8_t seg, char c);
+/*	Функция записи строки со смещением	*/
 void MAX7219_sendOffsetString(uint8_t offset, char *str);
+/*	Функция очистки одного сегмента на дисплее	*/
 void MAX7219_clearOneSegment(uint8_t seg);
 
-
-
-//#define CS_set()			HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_SET)		// ___/ *
-//#define CS_reset()		HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET)		// ---\ *
 #define CS_set(CS_PORT, CS_PIN)			HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_SET)
 #define CS_reset(CS_PORT, CS_PIN)		HAL_GPIO_WritePin(CS_PORT, CS_PIN, GPIO_PIN_RESET)
 

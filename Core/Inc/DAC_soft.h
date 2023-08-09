@@ -4,8 +4,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 
-#define	DAC_STEP			5
-
+/*	Типы сигналов данного ЦАПа	*/
 typedef enum {
 	NONE = 0,
 	TRIANGLE,
@@ -14,13 +13,11 @@ typedef enum {
 	REVERSE_SAW
 } signal_t;
 
-void DAC_init(signal_t signal, float freq);
+/*	Функция старта программного ЦАПа. Принимает аргументами тип сигнала и его частоту в кГц	*/
+void DAC_start(signal_t signal, float freq);
+/*	Функция остановки программного ЦАПа	*/
 void DAC_stop();
-void DAC_writeTriangle();
-void DAC_writeSin();
-void DAC_writeSaw();
-void DAC_writeReverseSaw();
 
-extern xSemaphoreHandle xDacTickSemaphore;
+
 
 #endif

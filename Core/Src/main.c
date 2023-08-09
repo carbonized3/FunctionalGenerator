@@ -43,9 +43,10 @@
 /* Private variables ---------------------------------------------------------*/
 SPI_HandleTypeDef hspi1;
 
-TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim5;
 TIM_HandleTypeDef htim9;
+DMA_HandleTypeDef hdma_tim1_up;
 
 osThreadId defaultTaskHandle;
 osThreadId myTask02Handle;
@@ -60,14 +61,20 @@ osMessageQId myQueue01Handle;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_TIM3_Init(void);
 static void MX_TIM9_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_TIM1_Init(void);
 void StartDefaultTask(void const * argument);
+
+/*	Задача для работы с клавиатурой		*/
 void buttonTask(void const * argument);
+/*	Задача для работы с дисплеем на MAX7219		*/
 void displayTask(void const * argument);
+/*	Задача для работы с ЦАПом	*/
 void dacTask(void const * argument);
+/*	Задача для работы с ШиМ	*/
 void pwmTask(void const * argument);
 
 /* USER CODE BEGIN PFP */
@@ -75,34 +82,50 @@ void pwmTask(void const * argument);
 /*	имеем всевозможных 5 стадий настроек, для режима ЦАПа и ШиМ некоторые из неих будут отличаться.
  * 	По умолчанию все частоты 1 кГц, значит количество цифр на дисплее - 2. ЦАП и ШиМ изначально каждые 100 мс
  * 	проверяют состояние переменной dac_is_running и pwm_is_running.	*/
+//--------------------------------------------------------------------------------
 bool start_stage = true;
 bool set_mode_stage = false;
 bool set_signal_stage = false;
 bool set_freq_stage = false;
 bool set_duty_stage = false;
+//--------------------------------------------------------------------------------
 uint8_t digit_position = POINT_TENS;
 uint8_t digits_amount = 2;
+//--------------------------------------------------------------------------------
 float freq_dac = 1.0;
-float freq_pwm = 1.0;							// Также нужно сохранять digits_amount по уму
+float freq_pwm = 1.0;	
+float duty = 50.0f;		
+//--------------------------------------------------------------------------------									
 signal_t sign = TRIANGLE;
+//--------------------------------------------------------------------------------
 volatile bool dac_is_running = 0;
 volatile bool pwm_is_running = 0;
 volatile uint16_t button_exti;
+//--------------------------------------------------------------------------------
+bool dac_is_started = false;
+bool pwm_is_started = false;
+//--------------------------------------------------------------------------------
 
 /*	Массив строк для удобного их вывода на дислпей на стадии установки сигнала	*/
 static char signal_msg[][9] = {
 		"TRIANGLE", "SINUS", "SAW", "REV SAW"
 };
 
+/*	Очередь для передачи идентификатора кнопки, на которую нажали, в задачу для работы с клавиатурой	*/
 xQueueHandle xButtonQueue = NULL;
+/*	Очередь для передачи строк на дисплей	*/
 xQueueHandle xDisplayStringQueue = NULL;
+/*	Очередь для передачи частоты на дисплей	*/
 xQueueHandle xDisplayFreqQueue = NULL;
+/*	Очередь для передачи скважности на дисплей	*/
 xQueueHandle xDisplayDutyQueue = NULL;
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+/*	Колбек для первичной обработки нажатия клавиатуры	*/
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	button_exti = GPIO_Pin;
@@ -145,10 +168,11 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_SPI1_Init();
-  MX_TIM3_Init();
   MX_TIM9_Init();
   MX_TIM5_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   max7219_init_t cfg = {
   		  .SPI_Handle = &hspi1,
@@ -313,47 +337,48 @@ static void MX_SPI1_Init(void)
 }
 
 /**
-  * @brief TIM3 Initialization Function
+  * @brief TIM1 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM3_Init(void)
+static void MX_TIM1_Init(void)
 {
 
-  /* USER CODE BEGIN TIM3_Init 0 */
+  /* USER CODE BEGIN TIM1_Init 0 */
 
-  /* USER CODE END TIM3_Init 0 */
+  /* USER CODE END TIM1_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE BEGIN TIM3_Init 1 */
+  /* USER CODE BEGIN TIM1_Init 1 */
 
-  /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 0;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65000;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 65535;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
   }
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
   {
     Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM3_Init 2 */
+  /* USER CODE BEGIN TIM1_Init 2 */
 
-  /* USER CODE END TIM3_Init 2 */
+  /* USER CODE END TIM1_Init 2 */
 
 }
 
@@ -451,6 +476,22 @@ static void MX_TIM9_Init(void)
   /* USER CODE BEGIN TIM9_Init 2 */
 
   /* USER CODE END TIM9_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream5_IRQn, 5, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream5_IRQn);
 
 }
 
@@ -569,7 +610,6 @@ void buttonTask(void const * argument)
   /* USER CODE BEGIN buttonTask */
 	uint16_t button_num;
 	float freq_buff = 1.0f;
-	float duty = 50.0f;
 	char str_buff[9] = {};
 	uint8_t mode = PWM_MODE;
   /* Infinite loop */
@@ -862,30 +902,18 @@ void dacTask(void const * argument)
   /* Infinite loop */
 	for(;;)
 	{
-		if( dac_is_running )
+		if( dac_is_running && !dac_is_started )	/*	Если выставили переменную на работу ЦАПа но он ещё не работает	*/
 		{
-			DAC_init(sign, freq_dac);
+			DAC_start(sign, freq_dac);
+			dac_is_started = true;				/* 	Чтобы повторно сюда не заходить	*/
 		}
-		while( dac_is_running )
+		if( !dac_is_running && dac_is_started)	/*	Если ЦАП работает была нажата кнопка RETURN */
 		{
-			switch(sign) {
-				case TRIANGLE:
-					DAC_writeTriangle();
-					break;
-				case SIN:
-					DAC_writeSin();
-					break;
-				case SAW:
-					DAC_writeSaw();
-					break;
-				case REVERSE_SAW:
-					DAC_writeReverseSaw();
-					break;
-			}
+			DAC_stop();
+			dac_is_started = false;
 		}
-		DAC_stop();
-		vTaskDelay(500 / portTICK_RATE_MS);
-  }
+		vTaskDelay(100 / portTICK_RATE_MS);
+	}
   /* USER CODE END dacTask */
 }
 
@@ -902,12 +930,16 @@ void pwmTask(void const * argument)
   /* Infinite loop */
 	for(;;)
 	{
-		if( pwm_is_running )
+		if( pwm_is_running && !pwm_is_started )	/*	Если выставили переменную на работу Ш�?М но он ещё не работает	*/
 		{
-			PWM_start(100, 10);
+			PWM_start(freq_pwm, duty);
+			pwm_is_started = true;
 		}
-		while( pwm_is_running ) {};
-		PWM_stop();
+		if( !pwm_is_running && pwm_is_started)	/*	Если Ш�?М работает была нажата кнопка RETURN */
+		{
+			PWM_stop();
+			pwm_is_started = false;
+		}
 		vTaskDelay(100 / portTICK_RATE_MS);
 	}
   /* USER CODE END pwmTask */
@@ -921,6 +953,8 @@ void pwmTask(void const * argument)
   * @param  htim : TIM handle
   * @retval None
   */
+
+/* Колбек в котором	реализуется защита от дребезга	*/
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
@@ -962,20 +996,21 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 			}
 			xQueueSendToBackFromISR(xButtonQueue, &button_num, &high_task_awoken);
 		}
-		EXTI->PR = (1<<1);
-		EXTI->PR = (1<<2);
-		EXTI->PR = (1<<3);
-		EXTI->PR = (1<<4);
-		EXTI->PR = (1<<9);
-		EXTI->PR = (1<<15);
+		EXTI->PR |= BUTTON_LEFT_Pin;
+		EXTI->PR |= BUTTON_RIGHT_Pin;
+		EXTI->PR |= BUTTON_OK_Pin;
+		EXTI->PR |= BUTTON_RETURN_Pin;
+		EXTI->PR |= BUTTON_UP_Pin;
+		EXTI->PR |= BUTTON_DOWN_Pin;
 		/*	Чистим флаги прерываний которые могли произойти во время задрежки таймером, чтобы не попасть в колбек
-		 * ещё лишний раз	*/
+		 * 	ещё лишний раз	*/
 		HAL_NVIC_EnableIRQ(BUTTON_DOWN_EXTI_IRQn);
 		HAL_NVIC_EnableIRQ(BUTTON_UP_EXTI_IRQn);
 		HAL_NVIC_EnableIRQ(BUTTON_LEFT_EXTI_IRQn);
 		HAL_NVIC_EnableIRQ(BUTTON_RIGHT_EXTI_IRQn);
 		HAL_NVIC_EnableIRQ(BUTTON_RETURN_EXTI_IRQn);
 		HAL_NVIC_EnableIRQ(BUTTON_OK_EXTI_IRQn);
+
 		if( high_task_awoken == pdTRUE )
 		{
 			portYIELD_FROM_ISR(high_task_awoken);

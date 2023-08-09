@@ -1,6 +1,2 @@
-../Core/Src/DAC_soft.c:20:6:DAC_stop	8	static
-../Core/Src/DAC_soft.c:26:6:DAC_init	16	static
-../Core/Src/DAC_soft.c:50:6:DAC_writeSin	16	static
-../Core/Src/DAC_soft.c:64:6:DAC_writeTriangle	16	static
-../Core/Src/DAC_soft.c:86:6:DAC_writeSaw	16	static
-../Core/Src/DAC_soft.c:100:6:DAC_writeReverseSaw	16	static
+../Core/Src/DAC_soft.c:48:6:DAC_stop	4	static
+../Core/Src/DAC_soft.c:53:6:DAC_start	16	static

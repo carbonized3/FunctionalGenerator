@@ -43,7 +43,7 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-extern TIM_HandleTypeDef htim3;
+extern TIM_HandleTypeDef htim1;
 extern SPI_HandleTypeDef hspi1;
 extern TIM_HandleTypeDef htim5;
 
@@ -66,17 +66,18 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
-typedef enum {					// тайпдеф режимов
+/*	Режимы работы генератора	*/
+typedef enum {
 	PWM_MODE = 0,
 	DAC_MODE
 } generation_mode_t;
 
-typedef enum {					// Тайпдеф для удобной работы с разрядами
+/*	Разрядности в числах	*/
+typedef enum {
 	POINT_TENS = 1,
 	UNITS,
 	TENS,
 	HUNDREDS,
-	THOUSANDS
 } digit_position_t;
 
 /* USER CODE END EFP */

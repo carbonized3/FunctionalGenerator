@@ -1,6 +1,6 @@
 #include "MAX7219.h"
 
-static max7219_init_t *MAX7219_Handler;	// Через неё мы все делаем
+static max7219_init_t *MAX7219_Handler;	
 
 static HAL_StatusTypeDef MAX7219_write(uint8_t reg, uint8_t data)
 {
@@ -9,29 +9,25 @@ static HAL_StatusTypeDef MAX7219_write(uint8_t reg, uint8_t data)
 	value[0] = reg;
 	value[1] = data;
 
-//	HAL_GPIO_WritePin(MAX7219_Handler->CS_PORT, MAX7219_Handler-> CS_PIN, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);
-//	CS_reset(MAX7219_Handler->CS_PORT, MAX7219_Handler-> CS_PIN);		// Строб --\__
-	result = HAL_SPI_Transmit(&hspi1, value, 2, 1000);	// Передали сначала регистр, потом инфу в него
-//	CS_set(MAX7219_Handler->CS_PORT, MAX7219_Handler-> CS_PIN);		// Строб __/--
-	HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_RESET);	// Строб --\__		
+	result = HAL_SPI_Transmit(&hspi1, value, 2, 1000);	
+	HAL_GPIO_WritePin(SPI_CS_GPIO_Port, SPI_CS_Pin, GPIO_PIN_SET);		// Строб __/
 	return result;
 }
 //---------------------------------------------------------
-static HAL_StatusTypeDef MAX7219_setDecode(uint8_t mode)	// Функция задающая режим декодирования для сегментов
+static HAL_StatusTypeDef MAX7219_setDecode(uint8_t mode)
 {
-	if(MAX7219_Handler->decode_mode != mode)	// Если мы завдали новый режим, то нужно все поменять
+	if(MAX7219_Handler->decode_mode != mode)	
 	{
-		MAX7219_Handler->decode_mode = mode;	// Присовим новый режим, чтобы его потом отслеживать
-		return ( MAX7219_write(MAX7219_DECODE_MODE_REG, mode) );	// Записали этот режим в регистр
+		MAX7219_Handler->decode_mode = mode;		/* Присовим новый режим, чтобы его потом отслеживать	*/
+		return ( MAX7219_write(MAX7219_DECODE_MODE_REG, mode) );	
 	}
 	return HAL_OK;
 }
 //---------------------------------------------------------
 void MAX7219_sendDigit(uint8_t seg, uint8_t digit)
 {
-//	MAX7219_setDecode(MAX7219_DECODE_FOR_ALL_DIGITS);
-	MAX7219_write(seg, digit);			// И записали то что хотели
+	MAX7219_write(seg, digit);
 }
 //---------------------------------------------------------
 static char MAX7219_convertSymbol(char symbol) {
@@ -134,36 +130,34 @@ static char MAX7219_convertSymbol(char symbol) {
 	}
 }
 //---------------------------------------------------------
-void MAX7219_sendOneChar(uint8_t seg, char c)			// Функция преобразует к виду семисегментника и передаёт дальше
+void MAX7219_sendOneChar(uint8_t seg, char c)
 {
-	MAX7219_write(seg, MAX7219_convertSymbol( c ));			// И записали то что хотели
+	MAX7219_write(seg, MAX7219_convertSymbol( c ));			
 }
 //---------------------------------------------------------
-void MAX7219_sendOffsetString(uint8_t offset, char *str)	// Функция записи строки со смещением
+void MAX7219_sendOffsetString(uint8_t offset, char *str)
 {
-	int seg_iter = MAX7219_SEGMENTS_AMOUNT;		// Итератор сегментов
+	int seg_iter = MAX7219_SEGMENTS_AMOUNT;		
 
-	if (strlen(str) > 8) return;				// Проверка на валидность строки
-	MAX7219_setDecode(MAX7219_NO_DECODE);		// Убрали декодирование
+	if (strlen(str) > 8) return;
+	MAX7219_setDecode(MAX7219_NO_DECODE);
 	for(uint8_t i = 0; str[i] != '\0'; i++)
 	{
-		if((seg_iter - offset) == 0) break;		// Чтобы случайно не записать в другой регистр
+		if((seg_iter - offset) == 0) break;		/* Чтобы случайно не записать в другой регистр	*/
 		MAX7219_sendOneChar( (seg_iter - offset), str[i] );
 		seg_iter--;
-		/*	Передали функции записи в регистр, адрес сегмента и преобразованный char в семисегментный символ	*/
 	}
 }
 //---------------------------------------------------------
 void MAX7219_sendString(char *str)
 {
-	int seg_iter = 8;							// Итератор сегментов
-	if (strlen(str) > 8) return;				// Проверка на валидность строки
-	MAX7219_setDecode(MAX7219_NO_DECODE);		// Убрали декодирование
+	int seg_iter = 8;							
+	if (strlen(str) > 8) return;				/* Проверка на валидность строки (не более 8 символов)	*/
+	MAX7219_setDecode(MAX7219_NO_DECODE);		
 	for(uint8_t i = 0; str[i] != '\0'; i++)
 	{
 		MAX7219_sendOneChar( seg_iter, str[i]);
 		seg_iter--;
-		/*	Передали функции записи в регистр, адрес сегмента и преобразованный char в семисегментный символ	*/
 	}
 }
 //---------------------------------------------------------
@@ -181,7 +175,7 @@ uint8_t MAX7219_sendFloatNumber(float number)
 	for(uint8_t i = 0; str[i] != '\0'; i++)
 	{
 		if( str[i+1] == '.') {
-			MAX7219_write( seg_iter, MAX7219_convertSymbol( str[i] ) | POINT );	// Добавим 0х80 чтобы вывести в тот же сегмент точку
+			MAX7219_write( seg_iter, MAX7219_convertSymbol( str[i] ) | POINT );	/* Добавим 0х80 чтобы вывести в тот же сегмент точку	*/
 		}
 		else if(str[i] == '.') {
 			continue;
@@ -190,36 +184,34 @@ uint8_t MAX7219_sendFloatNumber(float number)
 			MAX7219_sendOneChar( seg_iter, str[i] );
 		}
 		seg_iter--;
-		/*	Передали функции записи в регистр, адрес сегмента и преобразованный char в семисегментный символ	*/
 	}
-
 	return (strlen(str));
-	/* Это нужно для того, чтобы знать смещение и приписать размерность числу (205.5 Hz к примеру).
+	/* Возврат величины нужен для того, чтобы знать смещение и приписать размерность числу (205.5 Hz к примеру).
 	  	  Используется для функции MAX7219_sendOffsetString() */
 }
 //---------------------------------------------------------
 void MAX7219_sendNumber(int number)
 {
 	if(number == 0) {
-		MAX7219_sendOneChar(MAX7219_SEGMENT_7 , 0);	// Исключительный случай, когда нолик
+		MAX7219_sendOneChar(MAX7219_SEGMENT_7 , 0);	
 		return;
 	}
 
-	int k = 0;					// Итератор для дисплея
-	uint8_t buffer[8] = {};		// Проинициализировали нулями сразу
+	int k = 0;					
+	uint8_t buffer[8] = {};		
 
-	if(number > 0)		// Если число положительное
+	if(number > 0)		
 	{
 		for (int i = 7; i >= 0; i--)
 		{
 			if(number > 0)
 			{
-				buffer[i] = number % 10;		// Записываем число с конца, как и должно быть
-				number /= 10;					// Получаем число в массиве вида: number = 107 =>
-			}									// buffer[4] = [0, 1, 0, 7];
+				buffer[i] = number % 10;		/* Записываем число с конца, а затем получем массив цифр ида: number = 107 =>	*/
+				number /= 10;					/* buffer[4] = [0, 1, 0, 7];	*/
+			}									 
 			else break;
 		}
-		for (uint8_t i = 0; i < 8; i++)			// Все работает!!
+		for (uint8_t i = 0; i < 8; i++)		
 		{
 			if(buffer[i] == 0 && k == 0) continue;
 			/*
@@ -235,14 +227,14 @@ void MAX7219_sendNumber(int number)
 				/*
 					k увеличивается только тогда, когда в массиве НЕ ноль, это позволяет писать число
 					с первого сегмента на дисплей, в то время как интерация по массиву чисел происходит обычным
-					образом включая нули, просто эти нули они скипаются.
+					образом включая нули.
 				*/
 			}
 		}
 	}
-	else {		// Если число отрицательное
-		MAX7219_sendOneChar(MAX7219_SEGMENT_7, '-');	// Вначале будет минус
-		number = number - (2*number);			// Делаем из отрицательного положиетльное
+	else {		/* Если число отрицательное	*/
+		MAX7219_sendOneChar(MAX7219_SEGMENT_7, '-');	
+		number = number - (2*number);			/* Делаем из отрицательного положиетльное	*/
 		for (int i = 7; i >= 0; i--)
 		{
 			if(number > 0)
@@ -270,7 +262,7 @@ uint8_t MAX7219_sendDuty(float duty)
 	return offset;
 }
 //---------------------------------------------------------
-uint8_t MAX7219_sendFreq(float freq)	// Функция для отображения частоты на дисплее
+uint8_t MAX7219_sendFreq(float freq)
 {
 	uint8_t offset;
 	offset = MAX7219_sendFloatNumber(freq);
@@ -294,17 +286,15 @@ void MAX7219_clearAll()
 	}
 }
 //---------------------------------------------------------
-HAL_StatusTypeDef MAX7219_init(max7219_init_t *cfg)		// Инициализация через структуру
+HAL_StatusTypeDef MAX7219_init(max7219_init_t *cfg)
 {
 	HAL_StatusTypeDef result;
 	MAX7219_Handler = cfg;
-	/* Присвоили указатель на структуру с заполненными полями пользователем в ту, которая используется только здесь	*/
-	MAX7219_write(MAX7219_DECODE_MODE_REG, MAX7219_Handler->decode_mode);		// Декодирование для всех
+	MAX7219_write(MAX7219_DECODE_MODE_REG, MAX7219_Handler->decode_mode);
 	MAX7219_write(MAX7219_INTENSITY_REG, MAX7219_Handler->indicator_intensity);
 	MAX7219_write(MAX7219_SCAN_LIMIT_REG, MAX7219_Handler->digits_quantity);
 	result = MAX7219_write(MAX7219_MODE_REG, MAX7219_NORMAL_MODE);
-
-	MAX7219_clearAll();		// Чистим дисплей на всякий
+	MAX7219_clearAll();		
 	return result;
 }
 
