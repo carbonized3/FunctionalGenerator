@@ -18,6 +18,6 @@ void DAC_start(signal_t signal, float freq);
 /*	Функция остановки программного ЦАПа	*/
 void DAC_stop();
 
-
+#define TIM_TICK		0.015625
 
 #endif

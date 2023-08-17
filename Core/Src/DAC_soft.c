@@ -40,7 +40,7 @@ uint16_t triangle_sign[] = {
 };
 
 static float one_dac_tick;
-static uint16_t tim3_counter_period;
+static uint16_t tim1_counter_period;
 static uint16_t *sign_pointer = NULL;	/*	Указатель на массив со значениями выбранного сигнала	*/
 static uint32_t array_size = 0;
 static bool dma_started = false;
@@ -72,9 +72,9 @@ void DAC_start(signal_t signal, float freq)
 		sign_pointer = sin_tab;
 		array_size = sizeof(sin_tab) / sizeof(uint16_t);
 	}
-	tim3_counter_period = one_dac_tick / 0.015625;
+	tim1_counter_period = one_dac_tick / TIM_TICK;
 	TIM1->PSC = 0;
-	TIM1->ARR = tim3_counter_period;
+	TIM1->ARR = tim1_counter_period;
 	TIM1->CNT = 0;
 
 	if( !dma_started ) 	/*	Запуск ДМА должен происходить только один раз	*/
