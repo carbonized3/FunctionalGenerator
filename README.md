@@ -98,10 +98,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
                break;
             ...
             case BUTTON_RETURN_Pin:
-					button_num = BUTTON_RETURN_Pin;
-					dac_is_running = false;				
-					pwm_is_running = false;
-					break;
+		button_num = BUTTON_RETURN_Pin;
+		dac_is_running = false;				
+		pwm_is_running = false;
+		break;
          }
          xQueueSendToBackFromISR(xButtonQueue, &button_num, &high_task_awoken);
          /*  Отрпавим номер ножки в очередь  */
@@ -146,13 +146,13 @@ void dacTask(void const * argument)
   ...
   for(;;)
   {
-      ...
-      if( !dac_is_running && dac_is_started)	
-		{
-			DAC_stop();
-			dac_is_started = false;
-		}
-		vTaskDelay(100 / portTICK_RATE_MS);
+      	...
+	if( !dac_is_running && dac_is_started)	
+	{
+		DAC_stop();
+		dac_is_started = false;
+	}
+	vTaskDelay(100 / portTICK_RATE_MS);
   }
 }
 ```
